@@ -1,7 +1,6 @@
 package repo_inmemory
 
 import (
-	"errors"
 	"fmt"
 	"orders/order"
 	"sync"
@@ -36,7 +35,7 @@ func (r *Repo) GetOrderByID(id int) (order.Order, error) {
 	ord, exists := r.Storage[id]
 	r.mtx.RUnlock()
 	if !exists {
-		err = errors.New(fmt.Sprintf("Заказа c id=%v не существует", id))
+		err = fmt.Errorf("заказа c id=%v не существует", id)
 		return order.Order{}, err
 	}
 	return *ord, err
@@ -58,7 +57,7 @@ func (r *Repo) UpdateOrderStatus(id int, newStatus string) (*order.Order, error)
 	r.mtx.Lock()
 	ord, exists := r.Storage[id]
 	if !exists {
-		err = errors.New(fmt.Sprintf("Заказа c id=%v не существует", id))
+		err = fmt.Errorf("заказа c id=%v не существует", id)
 	} else {
 		ord.Status = newStatus
 	}
@@ -73,7 +72,7 @@ func (r *Repo) DeleteOrder(id int) (order.Order, error) {
 	ord, exists := r.Storage[id]
 
 	if !exists {
-		err = errors.New(fmt.Sprintf("Заказа c id=%v не существует", id))
+		err = fmt.Errorf("заказа c id=%v не существует", id)
 	} else {
 		deleted = *ord
 		delete(r.Storage, id)
