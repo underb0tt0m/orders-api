@@ -21,7 +21,6 @@ func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	return
 }
 
 func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
@@ -35,11 +34,10 @@ func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	return
 }
 
 func createOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	httpRequestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -112,11 +110,10 @@ func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	return
 }
 
 func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
