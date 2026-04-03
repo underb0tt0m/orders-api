@@ -2,14 +2,17 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"orders/order"
 	"orders/repo"
 	"strconv"
+
+	"github.com/jackc/pgx/v5"
 )
 
-func MainHandler(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	switch r.Method {
 	case "GET":
 		getAllOrders(w, r, repo)
@@ -21,7 +24,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 	return
 }
 
-func MainHandlerID(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	switch r.Method {
 	case "GET":
 		getOrderByID(w, r, repo)
@@ -35,7 +38,7 @@ func MainHandlerID(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 	return
 }
 
-func createOrder(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func createOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	defer r.Body.Close()
 	httpRequestBody, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -47,9 +50,13 @@ func createOrder(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	ord_id := repo.CreateOrder(&ord)
+	ordId, err := repo.CreateOrder(&ord)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	mapa := make(map[string]int)
-	mapa["id"] = ord_id
+	mapa["id"] = ordId
 	responseBody, err := json.Marshal(mapa)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -63,15 +70,19 @@ func createOrder(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 	}
 }
 
-func getOrderByID(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func getOrderByID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	ord, err := repo.GetOrderByID(id)
-	if err != nil {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
 		w.WriteHeader(http.StatusNotFound)
+		return
+	case err != nil:
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	data, err := json.MarshalIndent(ord, "", "	")
@@ -86,8 +97,13 @@ func getOrderByID(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 
 }
 
-func getAllOrders(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
-	responseBody, err := json.MarshalIndent(repo.GetAllOrders(), "", "	")
+func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+	ords, err := repo.GetAllOrders()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	responseBody, err := json.MarshalIndent(ords, "", "	")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -99,7 +115,7 @@ func getAllOrders(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 	return
 }
 
-func putOrderStatus(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	defer r.Body.Close()
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -123,7 +139,11 @@ func putOrderStatus(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 		return
 	}
 	changedOrder, err := repo.UpdateOrderStatus(id, newStatus)
-	if err != nil {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		w.WriteHeader(http.StatusNotFound)
+		return
+	case err != nil:
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -138,15 +158,19 @@ func putOrderStatus(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
 	}
 }
 
-func deleteOrder(w http.ResponseWriter, r *http.Request, repo *repo.Repo) {
+func deleteOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	deletedOrder, err := repo.DeleteOrder(id)
-	if err != nil {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
 		w.WriteHeader(http.StatusNotFound)
+		return
+	case err != nil:
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	_ = deletedOrder

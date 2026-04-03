@@ -1,4 +1,4 @@
-package repo
+package repo_inmemory
 
 import (
 	"errors"
@@ -21,13 +21,13 @@ func NewRepo() *Repo {
 	}
 }
 
-func (r *Repo) CreateOrder(o *order.Order) int {
+func (r *Repo) CreateOrder(o *order.Order) (int, error) {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 	r.Storage[r.i+1] = o
 	r.i++
 
-	return r.i
+	return r.i, nil
 }
 
 func (r *Repo) GetOrderByID(id int) (order.Order, error) {
@@ -42,7 +42,7 @@ func (r *Repo) GetOrderByID(id int) (order.Order, error) {
 	return *ord, err
 }
 
-func (r *Repo) GetAllOrders() map[int]*order.Order {
+func (r *Repo) GetAllOrders() (map[int]*order.Order, error) {
 	r.mtx.RLock()
 	result := r.Storage
 	resultCopy := make(map[int]*order.Order)
@@ -50,7 +50,7 @@ func (r *Repo) GetAllOrders() map[int]*order.Order {
 		resultCopy[k] = v
 	}
 	r.mtx.RUnlock()
-	return resultCopy
+	return resultCopy, nil
 }
 
 func (r *Repo) UpdateOrderStatus(id int, newStatus string) (*order.Order, error) {

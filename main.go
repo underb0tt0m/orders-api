@@ -1,14 +1,29 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"orders/api"
-	"orders/repo"
+	"orders/db/db_conn/simple_db_conn"
+	"orders/db/db_ops"
+	"orders/repo/repo_db"
 )
 
 func main() {
-	myRepo := repo.NewRepo()
+
+	ctx := context.Background()
+	conn, err := simple_db_conn.GetDBConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	if err = db_ops.CreateTables(ctx, conn); err != nil {
+		panic(err)
+	}
+	
+	myRepo := repo_db.NewRepo(conn, ctx)
+	//myRepo := repo_inmemory.NewRepo()
+
 	http.HandleFunc("/orders/{id}", func(w http.ResponseWriter, r *http.Request) {
 		api.MainHandlerID(w, r, myRepo)
 	})
