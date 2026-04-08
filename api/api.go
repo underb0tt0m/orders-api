@@ -1,18 +1,29 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"orders/order"
-	"orders/repo"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"orders/domain"
+	"orders/repo"
 )
 
-func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+/*
+	тут лучше сразу готовый роутер взять chi.NewRouter()
+	будем намного удобнее и безопаснее
+	+ вся логика должна быть в слое сервиса, а не в хендлере, сейчас у тебя 2в1
+*/
+
+const queryTimeout = time.Second
+
+func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	switch r.Method {
 	case "GET":
 		getAllOrders(w, r, repo)
@@ -23,7 +34,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	}
 }
 
-func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	switch r.Method {
 	case "GET":
 		getOrderByID(w, r, repo)
@@ -36,19 +47,23 @@ func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	}
 }
 
-func createOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+func createOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	defer func() { _ = r.Body.Close() }()
 	httpRequestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	var ord order.Order
+	var ord domain.Order
 	if err = json.Unmarshal(httpRequestBody, &ord); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	ordId, err := repo.CreateOrder(&ord)
+
+	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
+	defer cancel()
+
+	ordId, err := repo.CreateOrder(ctx, &ord)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -68,13 +83,17 @@ func createOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	}
 }
 
-func getOrderByID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+func getOrderByID(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	ord, err := repo.GetOrderByID(id)
+
+	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
+	defer cancel()
+
+	ord, err := repo.GetOrderByID(ctx, id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		w.WriteHeader(http.StatusNotFound)
@@ -95,8 +114,11 @@ func getOrderByID(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 
 }
 
-func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
-	ords, err := repo.GetAllOrders()
+func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
+	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
+	defer cancel()
+
+	ords, err := repo.GetAllOrders(ctx)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -112,7 +134,7 @@ func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	}
 }
 
-func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	defer func() { _ = r.Body.Close() }()
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -135,7 +157,11 @@ func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	changedOrder, err := repo.UpdateOrderStatus(id, newStatus)
+
+	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
+	defer cancel()
+
+	changedOrder, err := repo.UpdateOrderStatus(ctx, id, newStatus)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		w.WriteHeader(http.StatusNotFound)
@@ -155,21 +181,25 @@ func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
 	}
 }
 
-func deleteOrder(w http.ResponseWriter, r *http.Request, repo repo.Repo) {
+func deleteOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	deletedOrder, err := repo.DeleteOrder(id)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		w.WriteHeader(http.StatusNotFound)
-		return
-	case err != nil:
-		w.WriteHeader(http.StatusBadRequest)
+
+	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
+	defer cancel()
+
+	if _, err = repo.DeleteOrder(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	_ = deletedOrder
+
 	w.WriteHeader(http.StatusNoContent)
 }
