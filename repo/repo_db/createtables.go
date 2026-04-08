@@ -1,4 +1,4 @@
-package db_ops
+package repo_db
 
 import (
 	"context"
@@ -15,8 +15,5 @@ CREATE TABLE IF NOT EXISTS orders (
 	status VARCHAR(10)
 );`
 	_, err := conn.Exec(ctx, stmt)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

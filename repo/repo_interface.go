@@ -1,11 +1,15 @@
 package repo
 
-import "orders/order"
+import (
+	"context"
 
-type Repo interface {
-	CreateOrder(o *order.Order) (int, error)
-	GetOrderByID(id int) (order.Order, error)
-	GetAllOrders() (map[int]*order.Order, error)
-	UpdateOrderStatus(id int, newStatus string) (*order.Order, error)
-	DeleteOrder(id int) (order.Order, error)
+	"orders/domain"
+)
+
+type OrderStorage interface {
+	CreateOrder(ctx context.Context, o *domain.Order) (int, error)
+	GetOrderByID(ctx context.Context, id int) (domain.Order, error)
+	GetAllOrders(ctx context.Context) (map[int]*domain.Order, error)
+	UpdateOrderStatus(ctx context.Context, id int, newStatus string) (*domain.Order, error)
+	DeleteOrder(ctx context.Context, id int) (domain.Order, error)
 }
