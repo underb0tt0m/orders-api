@@ -2,61 +2,161 @@ package repo_db
 
 import (
 	"context"
-	"orders/db/db_ops"
-	"orders/order"
-	"sync"
+	"orders/domain"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type Repo struct {
-	mtx  sync.RWMutex
 	conn *pgx.Conn
-	ctx  context.Context
 }
 
-func NewRepo(conn *pgx.Conn, ctx context.Context) *Repo {
+func New(conn *pgx.Conn) *Repo {
 	return &Repo{
-		sync.RWMutex{},
-		conn,
-		ctx}
+		conn: conn}
 }
 
-func (r *Repo) CreateOrder(o *order.Order) (int, error) {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
-	id, err := db_ops.InsertOrder(r.ctx, r.conn, o)
-	return id, err
-}
-
-func (r *Repo) GetOrderByID(id int) (order.Order, error) {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
-	ord, err := db_ops.SelectOrderByID(r.ctx, r.conn, id)
-	if err != nil {
-		return order.Order{}, err
+func (r *Repo) CreateOrder(ctx context.Context, o *domain.Order) (int, error) {
+	stmt := `
+INSERT INTO orders(name, count, status)
+VALUES ($1, $2, $3)
+RETURNING id;
+`
+	var id int
+	if err := r.conn.QueryRow(
+		ctx,
+		stmt,
+		o.Name,
+		o.Count,
+		o.Status,
+	).Scan(&id); err != nil {
+		return id, err
 	}
-	return ord, err
+	return id, nil
 }
 
-func (r *Repo) GetAllOrders() (map[int]*order.Order, error) {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
-	ords, err := db_ops.GetAllOrders(r.ctx, r.conn)
-	return ords, err
+func (r *Repo) GetOrderByID(ctx context.Context, id int) (domain.Order, error) {
+	stmt := `
+SELECT name, count, status
+FROM orders
+WHERE id = $1;
+`
+	var (
+		name, status string
+		count        int
+	)
+	if err := r.conn.QueryRow(
+		ctx,
+		stmt,
+		id,
+	).Scan(
+		&name,
+		&count,
+		&status,
+	); err != nil {
+		return domain.Order{}, err
+	}
+	return domain.Order{
+		Name:   name,
+		Count:  count,
+		Status: status,
+	}, nil
 }
 
-func (r *Repo) UpdateOrderStatus(id int, newStatus string) (*order.Order, error) {
-	var err error
-	r.mtx.Lock()
-	ord, err := db_ops.UpdateOrderStatus(r.ctx, r.conn, newStatus, id)
-	r.mtx.Unlock()
-	return &ord, err
+func (r *Repo) GetAllOrders(ctx context.Context) (map[int]*domain.Order, error) {
+	stmt := `
+SELECT id, name, count, status
+FROM orders;
+`
+	orders := make(map[int]*domain.Order)
+
+	rows, err := r.conn.Query(ctx, stmt)
+	if err != nil {
+		return orders, err
+	}
+	defer rows.Close()
+
+	var (
+		id, count    int
+		name, status string
+	)
+
+	for rows.Next() {
+		if err = rows.Scan(
+			&id,
+			&name,
+			&count,
+			&status,
+		); err != nil {
+			return orders, err
+		}
+
+		orders[id] = &domain.Order{
+			Name:   name,
+			Count:  count,
+			Status: status,
+		}
+	}
+	return orders, nil
 }
 
-func (r *Repo) DeleteOrder(id int) (order.Order, error) {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
-	ord, err := db_ops.DeleteOrderByID(r.ctx, r.conn, id)
-	return ord, err
+func (r *Repo) UpdateOrderStatus(ctx context.Context, id int, newStatus string) (*domain.Order, error) {
+	stmt := `
+UPDATE orders
+SET status = $1
+WHERE id = $2
+RETURNING name, count, status;
+`
+	var (
+		name, status string
+		count        int
+	)
+
+	if err := r.conn.QueryRow(
+		ctx,
+		stmt,
+		newStatus,
+		id,
+	).Scan(
+		&name,
+		&count,
+		&status,
+	); err != nil {
+		return &domain.Order{}, err
+	}
+
+	return &domain.Order{
+		Name:   name,
+		Count:  count,
+		Status: status,
+	}, nil
+}
+
+func (r *Repo) DeleteOrder(ctx context.Context, id int) (domain.Order, error) {
+	stmt := `
+DELETE FROM orders
+WHERE id = $1
+RETURNING name, count, status;
+`
+	var (
+		name, status string
+		count        int
+	)
+
+	if err := r.conn.QueryRow(
+		ctx,
+		stmt,
+		id,
+	).Scan(
+		&name,
+		&count,
+		&status,
+	); err != nil {
+		return domain.Order{}, err
+	}
+	return domain.Order{
+		Name:   name,
+		Count:  count,
+		Status: status,
+	}, nil
 }
