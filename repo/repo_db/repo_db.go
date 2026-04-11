@@ -5,15 +5,19 @@ import (
 	"orders/domain"
 
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 type Repo struct {
-	conn *pgx.Conn
+	conn   *pgx.Conn
+	logger *zap.Logger
 }
 
-func New(conn *pgx.Conn) *Repo {
+func New(conn *pgx.Conn, logger *zap.Logger) *Repo {
 	return &Repo{
-		conn: conn}
+		conn:   conn,
+		logger: logger,
+	}
 }
 
 func (r *Repo) CreateOrder(ctx context.Context, o *domain.Order) (int, error) {
@@ -22,6 +26,12 @@ INSERT INTO orders(name, count, status)
 VALUES ($1, $2, $3)
 RETURNING id;
 `
+	r.logger.Info("Trying to create new order...",
+		zap.String("name", o.Name),
+		zap.Int("count", o.Count),
+		zap.String("status", o.Status),
+	)
+
 	var id int
 	if err := r.conn.QueryRow(
 		ctx,
@@ -41,6 +51,10 @@ SELECT name, count, status
 FROM orders
 WHERE id = $1;
 `
+	r.logger.Info("Trying to get order by ID...",
+		zap.Int("ID", id),
+	)
+
 	var (
 		name, status string
 		count        int
@@ -76,6 +90,8 @@ FROM orders;
 	}
 	defer rows.Close()
 
+	r.logger.Info("Trying to get all orders...")
+
 	var (
 		id, count    int
 		name, status string
@@ -107,6 +123,11 @@ SET status = $1
 WHERE id = $2
 RETURNING name, count, status;
 `
+	r.logger.Info("Trying to update order status...",
+		zap.Int("ID", id),
+		zap.String("status", newStatus),
+	)
+
 	var (
 		name, status string
 		count        int
@@ -138,6 +159,10 @@ DELETE FROM orders
 WHERE id = $1
 RETURNING name, count, status;
 `
+	r.logger.Info("Trying to delete order...",
+		zap.Int("ID", id),
+	)
+
 	var (
 		name, status string
 		count        int
