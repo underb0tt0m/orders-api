@@ -20,6 +20,20 @@ github.com/jackc/pgx/v5/pgproto3
 github.com/jackc/pgx/v5/pgtype
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
+# go.uber.org/multierr v1.10.0
+## explicit; go 1.19
+go.uber.org/multierr
+# go.uber.org/zap v1.27.1
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
 # golang.org/x/text v0.31.0
 ## explicit; go 1.24.0
 golang.org/x/text/cases
