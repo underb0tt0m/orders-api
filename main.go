@@ -45,7 +45,7 @@ func main() {
 	defer func() { _ = conn.Close(ctx) }()
 
 	Logger.Info("Initialize repository")
-	myRepo := repo_db.New(conn)
+	myRepo := repo_db.New(conn, Logger)
 
 	Logger.Info("Register handlers")
 	http.HandleFunc("/orders/{id}", func(w http.ResponseWriter, r *http.Request) {

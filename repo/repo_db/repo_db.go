@@ -9,21 +9,24 @@ import (
 )
 
 type Repo struct {
-	conn *pgx.Conn
+	conn   *pgx.Conn
+	logger *zap.Logger
 }
 
-func New(conn *pgx.Conn) *Repo {
+func New(conn *pgx.Conn, logger *zap.Logger) *Repo {
 	return &Repo{
-		conn: conn}
+		conn:   conn,
+		logger: logger,
+	}
 }
 
-func (r *Repo) CreateOrder(ctx context.Context, o *domain.Order, logger *zap.Logger) (int, error) {
+func (r *Repo) CreateOrder(ctx context.Context, o *domain.Order) (int, error) {
 	stmt := `
 INSERT INTO orders(name, count, status)
 VALUES ($1, $2, $3)
 RETURNING id;
 `
-	logger.Info("Trying to create new order...",
+	r.logger.Info("Trying to create new order...",
 		zap.String("name", o.Name),
 		zap.Int("count", o.Count),
 		zap.String("status", o.Status),
@@ -42,13 +45,13 @@ RETURNING id;
 	return id, nil
 }
 
-func (r *Repo) GetOrderByID(ctx context.Context, id int, logger *zap.Logger) (domain.Order, error) {
+func (r *Repo) GetOrderByID(ctx context.Context, id int) (domain.Order, error) {
 	stmt := `
 SELECT name, count, status
 FROM orders
 WHERE id = $1;
 `
-	logger.Info("Trying to get order by ID...",
+	r.logger.Info("Trying to get order by ID...",
 		zap.Int("ID", id),
 	)
 
@@ -74,7 +77,7 @@ WHERE id = $1;
 	}, nil
 }
 
-func (r *Repo) GetAllOrders(ctx context.Context, logger *zap.Logger) (map[int]*domain.Order, error) {
+func (r *Repo) GetAllOrders(ctx context.Context) (map[int]*domain.Order, error) {
 	stmt := `
 SELECT id, name, count, status
 FROM orders;
@@ -87,7 +90,7 @@ FROM orders;
 	}
 	defer rows.Close()
 
-	logger.Info("Trying to get all orders...")
+	r.logger.Info("Trying to get all orders...")
 
 	var (
 		id, count    int
@@ -113,14 +116,14 @@ FROM orders;
 	return orders, nil
 }
 
-func (r *Repo) UpdateOrderStatus(ctx context.Context, id int, newStatus string, logger *zap.Logger) (*domain.Order, error) {
+func (r *Repo) UpdateOrderStatus(ctx context.Context, id int, newStatus string) (*domain.Order, error) {
 	stmt := `
 UPDATE orders
 SET status = $1
 WHERE id = $2
 RETURNING name, count, status;
 `
-	logger.Info("Trying to update order status...",
+	r.logger.Info("Trying to update order status...",
 		zap.Int("ID", id),
 		zap.String("status", newStatus),
 	)
@@ -150,13 +153,13 @@ RETURNING name, count, status;
 	}, nil
 }
 
-func (r *Repo) DeleteOrder(ctx context.Context, id int, logger *zap.Logger) (domain.Order, error) {
+func (r *Repo) DeleteOrder(ctx context.Context, id int) (domain.Order, error) {
 	stmt := `
 DELETE FROM orders
 WHERE id = $1
 RETURNING name, count, status;
 `
-	logger.Info("Trying to delete order...",
+	r.logger.Info("Trying to delete order...",
 		zap.Int("ID", id),
 	)
 

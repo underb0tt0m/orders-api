@@ -70,7 +70,7 @@ func createOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage,
 	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
 	defer cancel()
 
-	ordId, err := repo.CreateOrder(ctx, &ord, logger)
+	ordId, err := repo.CreateOrder(ctx, &ord)
 	if err != nil {
 		logger.Error("Can't write data in DB", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -122,7 +122,7 @@ func getOrderByID(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage
 	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
 	defer cancel()
 
-	ord, err := repo.GetOrderByID(ctx, id, logger)
+	ord, err := repo.GetOrderByID(ctx, id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		logger.Info(
@@ -169,7 +169,7 @@ func getAllOrders(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage
 
 	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
 	defer cancel()
-	ords, err := repo.GetAllOrders(ctx, logger)
+	ords, err := repo.GetAllOrders(ctx)
 	if err != nil {
 		logger.Info(
 			"Can't read data from DB",
@@ -252,7 +252,7 @@ func putOrderStatus(w http.ResponseWriter, r *http.Request, repo repo.OrderStora
 	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
 	defer cancel()
 
-	changedOrder, err := repo.UpdateOrderStatus(ctx, id, newStatus, logger)
+	changedOrder, err := repo.UpdateOrderStatus(ctx, id, newStatus)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		logger.Info(
@@ -309,7 +309,7 @@ func deleteOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage,
 
 	ctx, cancel := context.WithTimeout(r.Context(), queryTimeout)
 	defer cancel()
-	_, err = repo.DeleteOrder(ctx, id, logger)
+	_, err = repo.DeleteOrder(ctx, id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		logger.Info(
