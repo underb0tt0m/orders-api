@@ -2,7 +2,7 @@ package repo
 
 import (
 	"context"
-	"orders/domain"
+	"orders/internal/domain"
 )
 
 type OrderStorage interface {

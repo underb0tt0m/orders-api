@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"net/http"
-	"orders/api"
-	"orders/db/db_conn/simple_db_conn"
-	"orders/repo/repo_db"
-	"orders/zapLogger"
+	"orders/internal/api"
+	"orders/internal/db/db_conn/simple_db_conn"
+	"orders/internal/prometheus"
+	"orders/internal/repo/repo_db"
+	"orders/internal/zapLogger"
 	"os"
 	"os/signal"
 	"syscall"
@@ -54,8 +55,9 @@ func main() {
 	http.HandleFunc("/orders", func(w http.ResponseWriter, r *http.Request) {
 		api.MainHandler(w, r, myRepo, Logger)
 	})
+	prometheus.Register()
 
-	server := &http.Server{Addr: ":9091"}
+	server := &http.Server{Addr: "127.0.0.1:9091"}
 
 	go func() {
 		Logger.Info("Start HTTP-server")

@@ -6,8 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"orders/domain"
-	"orders/repo"
+	"orders/internal/domain"
+	"orders/internal/prometheus"
+	"orders/internal/repo"
 	"strconv"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 const queryTimeout = time.Second
 
 func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage, logger *zap.Logger) {
+	start := time.Now()
 	switch r.Method {
 	case "GET":
 		getAllOrders(w, r, repo, logger)
@@ -26,9 +28,16 @@ func MainHandler(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage,
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+	requestDuration := float64(time.Since(start).Microseconds())
+	prometheus.RequestDuratuion.Observe(requestDuration)
+	logger.Info(
+		"Request proccessing time",
+		zap.Float64("time, mcs", requestDuration),
+	)
 }
 
 func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage, logger *zap.Logger) {
+	start := time.Now()
 	switch r.Method {
 	case "GET":
 		getOrderByID(w, r, repo, logger)
@@ -37,6 +46,12 @@ func MainHandlerID(w http.ResponseWriter, r *http.Request, repo repo.OrderStorag
 	case "DELETE":
 		deleteOrder(w, r, repo, logger)
 	}
+	requestDuration := float64(time.Since(start).Microseconds())
+	prometheus.RequestDuratuion.Observe(requestDuration)
+	logger.Info(
+		"Request proccessing time",
+		zap.Float64("time, mcs", requestDuration),
+	)
 }
 
 func createOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage, logger *zap.Logger) {
@@ -99,6 +114,8 @@ func createOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage,
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	prometheus.OrdersCreated.Inc()
+	prometheus.OrdersActive.Inc()
 	logger.Info("Request are successfully handled")
 }
 
@@ -327,5 +344,6 @@ func deleteOrder(w http.ResponseWriter, r *http.Request, repo repo.OrderStorage,
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+	prometheus.OrdersActive.Dec()
 	logger.Info("Request are successfully handled")
 }

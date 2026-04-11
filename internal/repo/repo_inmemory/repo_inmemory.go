@@ -3,7 +3,7 @@ package repo_inmemory
 import (
 	"context"
 	"fmt"
-	"orders/domain"
+	"orders/internal/domain"
 	"sync"
 )
 

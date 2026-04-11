@@ -2,7 +2,7 @@ package repo_db
 
 import (
 	"context"
-	"orders/domain"
+	"orders/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
